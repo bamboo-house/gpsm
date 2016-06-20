@@ -5,3 +5,10 @@
 *.cubin
 *.fatbin
 *.vcxproj
+*.log
+*.tlog
+*.cache
+*.deps
+*.obj
+*.filters
+*.pdb
