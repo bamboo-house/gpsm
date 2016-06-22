@@ -37,11 +37,53 @@
 
 #define FILL(arr, size, val)	for(int i=0; i< size; i++) arr[i] = val
 
-enum {
-	/* supported copy types */
+#define WARP_SIZE (32)
+#define BLOCK_SIZE (512)
+
+#define THREADS_PER_BLOCK (blockDim.x)
+#define WARPS_PER_BLOCK ((THREADS_PER_BLOCK-1)/WARP_SIZE + 1)
+#define BLOCKS_PER_GRID (gridDim.x)
+
+#define BID	(blockIdx.x)
+#define TID	(threadIdx.x)	/*thread ID in current block*/
+#define WID (TID / WARP_SIZE)
+#define WTID (TID % WARP_SIZE)
+
+#define GTID (BID * THREADS_PER_BLOCK + TID)	/*global thread ID*/
+#define GWID (GTID / WARP_SIZE)
+#define GWTID (GTID % WARP_SIZE)
+
+#define TOTAL_THREADS (THREADS_PER_BLOCK * BLOCKS_PER_GRID)
+
+enum DataPosition { /* data position */
+	GPU,
+	MEM,
+	PINNED,
+	MMAP,
+	DISK
+};
+
+enum CopyType { /* supported copy types */
 	HOST_TO_DEVICE = 0,
 	HOST_TO_HOST,
 	DEVICE_TO_HOST
+};
+
+enum Direction { /* scanning directions */
+	IN,
+	OUT
+};
+
+
+template <typename VertexId>
+struct GPPlan {
+	int numNodes;
+	VertexId* nodeIDs;
+	Direction* scanDirects;
+};
+
+struct GPSpec{
+
 };
 
 #endif

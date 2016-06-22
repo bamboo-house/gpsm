@@ -24,7 +24,7 @@ namespace gpsm {
 		SizeT* inOffsets; // points to first endpoint of incoming edges ending at nodes
 		VertexId* inEdges; // endpoints of incoming edges
 
-		bool inGPU; // indicate if graph is stored in device memory or main memory
+		DataPosition dataPos; // indicate if graph is stored in device memory or main memory
 
 		//---------------------------------------------------------------------------
 		void _GetLabels() { // get statistics of node labels
@@ -184,7 +184,7 @@ namespace gpsm {
 		}
 		//---------------------------------------------------------------------------
 		void _Release() { // release memory
-			if (inGPU) {
+			if (dataPos == DataPosition::GPU) {
 				if (numNodes > 0) {
 					CUDA_SAFE_CALL(cudaFree(nodeLabels));
 					CUDA_SAFE_CALL(cudaFree(outOffsets));
@@ -200,7 +200,7 @@ namespace gpsm {
 					CUDA_SAFE_CALL(cudaFree(labelSizes));
 				}
 			}
-			else {
+			else if (dataPos == DataPosition::MEM) {
 				if (numNodes > 0) {
 					free(nodeLabels);
 					free(outOffsets);
@@ -218,7 +218,7 @@ namespace gpsm {
 			}
 		}
 		//---------------------------------------------------------------------------
-		GPGraph(bool dev = false) { // constructor
+		GPGraph(DataPosition pos = DataPosition::MEM) { // constructor
 			numNodes = 0;
 			numEdges = 0;
 			numLabels = 0;
@@ -230,7 +230,7 @@ namespace gpsm {
 			outEdges = NULL;
 			inOffsets = NULL;
 			inEdges = NULL;
-			inGPU = dev;
+			dataPos = pos;
 		}
 		//---------------------------------------------------------------------------
 		~GPGraph() { // destructor
@@ -336,6 +336,88 @@ namespace gpsm {
 
 				out.close();
 			}
+		}
+		//---------------------------------------------------------------------------
+		GPGraph* Copy(CopyType type) {
+			if ( (type == CopyType::HOST_TO_DEVICE || type == CopyType::HOST_TO_HOST)
+				 && dataPos != DataPosition::MEM) return NULL;
+
+			if (type == CopyType::DEVICE_TO_HOST && dataPos != DataPosition::GPU) return NULL;
+			
+			GPGraph* clone = (GPGraph*)malloc(sizeof(GPGraph));
+			CHECK_POINTER(clone);
+
+			clone->numNodes = numNodes;
+			clone->numEdges = numEdges;
+			clone->numLabels = numLabels;
+			clone->maxLabelSize = maxLabelSize;
+
+			switch (type)
+			{
+			case HOST_TO_DEVICE:
+				clone->dataPos = DataPosition::GPU;
+
+				CUDA_SAFE_CALL(cudaMalloc(&clone->nodeLabels, numNodes * sizeof(LabelId)));
+				CUDA_SAFE_CALL(cudaMalloc(&clone->outOffsets, (numNodes + 1) * sizeof(SizeT)));
+				CUDA_SAFE_CALL(cudaMalloc(&clone->inOffsets, (numNodes + 1) * sizeof(SizeT)));
+				CUDA_SAFE_CALL(cudaMalloc(&clone->outEdges, numEdges * sizeof(VertexId)));
+				CUDA_SAFE_CALL(cudaMalloc(&clone->inEdges, numEdges * sizeof(VertexId)));
+				CUDA_SAFE_CALL(cudaMalloc(&clone->labelSizes, numLabels * sizeof(SizeT)));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->nodeLabels, nodeLabels, numNodes * sizeof(LabelId),
+					cudaMemcpyHostToDevice));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->outOffsets, outOffsets, (numNodes + 1) * sizeof(SizeT),
+					cudaMemcpyHostToDevice));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->inOffsets, inOffsets, (numNodes + 1) * sizeof(SizeT),
+					cudaMemcpyHostToDevice));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->outEdges, outEdges, numEdges * sizeof(VertexId),
+					cudaMemcpyHostToDevice));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->inEdges, inEdges, numEdges * sizeof(VertexId),
+					cudaMemcpyHostToDevice));
+
+				CUDA_SAFE_CALL(cudaMemcpy(clone->labelSizes, labelSizes, numLabels * sizeof(SizeT),
+					cudaMemcpyHostToDevice));
+
+				break;
+			case HOST_TO_HOST:
+				clone->dataPos = DataPosition::MEM;
+
+				clone->nodeLabels = (LabelId*)malloc(numNodes * sizeof(LabelId));
+				CHECK_POINTER(clone->nodeLabels);
+
+				clone->outOffsets = (SizeT*)malloc((numNodes + 1) * sizeof(SizeT));
+				CHECK_POINTER(clone->outOffsets);
+
+				clone->inOffsets = (SizeT*)malloc((numNodes + 1) * sizeof(SizeT));
+				CHECK_POINTER(clone->inOffsets);
+
+				clone->outEdges = (VertexId*)malloc(numEdges * sizeof(VertexId));
+				CHECK_POINTER(clone->outEdges);
+
+				clone->inEdges = (VertexId*)malloc(numEdges * sizeof(VertexId));
+				CHECK_POINTER(clone->inEdges);
+
+				clone->labelSizes = (SizeT*)malloc(numLabels * sizeof(SizeT));
+				CHECK_POINTER(clone->labelSizes);
+
+				memcpy(clone->nodeLabels, nodeLabels, numNodes * sizeof(LabelId));
+				memcpy(clone->outOffsets, outOffsets, (numNodes + 1) * sizeof(SizeT));
+				memcpy(clone->inOffsets, inOffsets, (numNodes + 1) * sizeof(SizeT));
+				memcpy(clone->outEdges, outEdges, numEdges * sizeof(VertexId));
+				memcpy(clone->inEdges, inEdges, numEdges * sizeof(VertexId));
+				memcpy(clone->labelSizes, labelSizes, numLabels * sizeof(SizeT));
+				break;
+			case DEVICE_TO_HOST:
+				break;
+			default:
+				break;
+			}
+
+			return clone;
 		}
 		//---------------------------------------------------------------------------
 		void Print() { // print graph
