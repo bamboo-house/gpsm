@@ -13,6 +13,7 @@ namespace gpsm {
 			SizeT g_numLevelsAllocated = 0;
 			
 			int prefixSum(VertexId* d_inArr, VertexId* d_outArr, SizeT numRecords);
+			/// test
 		};
 
 		// Stream compaction on the device
