@@ -27,11 +27,15 @@ namespace gpsm {
 		DataPosition dataPos; // indicate if graph is stored in device memory or main memory
 
 		//---------------------------------------------------------------------------
+		SizeT _Max(SizeT a, SizeT b) {
+			return a > b ? a : b;
+		}
+
 		void _GetLabels() { // get statistics of node labels
 			if (numNodes > 0) {
 				numLabels = 0;
 
-				FOR_LIMIT(i, numNodes) numLabels = max(numLabels, nodeLabels[i]);
+				FOR_LIMIT(i, numNodes) numLabels = _Max(numLabels, static_cast<SizeT>(nodeLabels[i]));
 				numLabels++;
 
 				labelSizes = (SizeT*)malloc(numLabels * sizeof(SizeT));
@@ -41,7 +45,7 @@ namespace gpsm {
 				FOR_LIMIT(i, numNodes) labelSizes[nodeLabels[i]]++;
 
 				maxLabelSize = 0;
-				FOR_LIMIT(i, numLabels) maxLabelSize = max(maxLabelSize, labelSizes[i]);
+				FOR_LIMIT(i, numLabels) maxLabelSize = _Max(maxLabelSize, labelSizes[i]);
 			}
 		}
 		//---------------------------------------------------------------------------
@@ -250,6 +254,7 @@ namespace gpsm {
 				// read contents
 				nodeLabels = (LabelId*)malloc(numNodes * sizeof(LabelId));
 				CHECK_POINTER(nodeLabels);
+
 				outOffsets = (SizeT*)malloc((numNodes + 1) * sizeof(SizeT));
 				CHECK_POINTER(outOffsets);
 

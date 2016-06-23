@@ -1,5 +1,12 @@
+#pragma once
+
 #ifndef _GPSM_COMMON_H_
 #define _GPSM_COMMON_H_
+
+#include "cuda.h"
+#include "cutil.h"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +15,6 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include "cutil.h"
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 
 #define CHECK_POINTER(p)   do {                     \
     if(p == NULL){                                  \
@@ -55,35 +59,46 @@
 
 #define TOTAL_THREADS (THREADS_PER_BLOCK * BLOCKS_PER_GRID)
 
-enum DataPosition { /* data position */
-	GPU,
-	MEM,
-	PINNED,
-	MMAP,
-	DISK
-};
+#ifdef __INTELLISENSE__
+#define __launch_bounds__(a,b)
+void __syncthreads(void);
+void __threadfence(void);
+int __mul24(int, int);
+#endif
 
-enum CopyType { /* supported copy types */
-	HOST_TO_DEVICE = 0,
-	HOST_TO_HOST,
-	DEVICE_TO_HOST
-};
+typedef unsigned int uint;
 
-enum Direction { /* scanning directions */
-	IN,
-	OUT
-};
+namespace gpsm {
+	enum DataPosition { /* data position */
+		GPU,
+		MEM,
+		PINNED,
+		MMAP,
+		DISK
+	};
+
+	enum CopyType { /* supported copy types */
+		HOST_TO_DEVICE = 0,
+		HOST_TO_HOST,
+		DEVICE_TO_HOST
+	};
+
+	enum Direction { /* scanning directions */
+		IN,
+		OUT
+	};
 
 
-template <typename VertexId>
-struct GPPlan {
-	int numNodes;
-	VertexId* nodeIDs;
-	Direction* scanDirects;
-};
+	template <typename VertexId>
+	struct GPPlan {
+		int numNodes;
+		VertexId* nodeIDs;
+		Direction* scanDirects;
+	};
 
-struct GPSpec{
+	struct GPSpec{
 
-};
+	};
+}
 
 #endif
