@@ -1,4 +1,4 @@
-#pragma once
+/* Common Definition */
 
 #ifndef _GPSM_COMMON_H_
 #define _GPSM_COMMON_H_
