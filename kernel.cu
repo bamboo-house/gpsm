@@ -2,8 +2,6 @@
 #include "util\gutil.h"
 #include <iostream>
 
-using namespace gpsm;
-
 cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
 int main()
@@ -82,7 +80,7 @@ cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	prefixSum(dev_a, dev_c, size);
+	gpsm::scan::prefixSum(dev_a, dev_c, size);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();

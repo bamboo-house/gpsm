@@ -69,6 +69,7 @@ int __mul24(int, int);
 typedef unsigned int uint;
 
 namespace gpsm {
+
 	enum DataPosition { /* data position */
 		GPU,
 		MEM,

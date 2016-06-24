@@ -12,7 +12,7 @@
 #endif
 
 namespace gpsm {
-
+namespace scan {
 	template <bool isNP2>
 	__device__ void loadSharedChunkFromMem(int *s_data,
 										   const int *g_idata, 
@@ -410,7 +410,7 @@ namespace gpsm {
 		prescanArrayRecursive(outArray, inArray, numElements, 0);
 	}
 
-	int prefixSum( int* d_inArr, int* d_outArr, int numRecords ) {	
+	int  prefixSum( int* d_inArr, int* d_outArr, int numRecords ) {	
 		preallocBlockSums(numRecords);
 		prescanArray( d_outArr, d_inArr, numRecords );
 		deallocBlockSums();	
@@ -429,4 +429,5 @@ namespace gpsm {
 		return sum;
 	}
 
+}
 }
