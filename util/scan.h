@@ -7,9 +7,8 @@ namespace scan {
 	/* Parallel prefix sum on the device */
 	int prefixSum(int* d_inArr, int* d_outArr, int numRecords);
 
-	/* Stream compaction on the devie */
+	/* Parallel stream compaction on the device */
 	int compact(bool* d_inArr, int* d_outArr, int numRecords);
-}
-}
+}}
 
 #endif

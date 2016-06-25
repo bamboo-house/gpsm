@@ -13,6 +13,7 @@
 
 namespace gpsm {
 namespace scan {
+	//---------------------------------------------------------------------------
 	template <bool isNP2>
 	__device__ void loadSharedChunkFromMem(int *s_data,
 										   const int *g_idata, 
@@ -45,7 +46,7 @@ namespace scan {
 			s_data[bi + bankOffsetB] = g_idata[mem_bi]; 
 		}
 	}
-
+	//---------------------------------------------------------------------------
 	template <bool isNP2>
 	__device__ void storeSharedChunkToMem(int* g_odata, 
 										  const int* s_data,
@@ -68,7 +69,7 @@ namespace scan {
 			g_odata[mem_bi] = s_data[bi + bankOffsetB]; 
 		}
 	}
-
+	//---------------------------------------------------------------------------
 	template <bool storeSum>
 	__device__ void clearLastElement(int* s_data, 
 									 int *g_blockSums, 
@@ -89,9 +90,7 @@ namespace scan {
 			s_data[index] = 0;
 		}
 	}
-
-
-
+	//---------------------------------------------------------------------------
 	__device__ unsigned int buildSum(int *s_data)
 	{
 		unsigned int thid = threadIdx.x;
@@ -119,7 +118,7 @@ namespace scan {
 
 		return stride;
 	}
-
+	//---------------------------------------------------------------------------
 	__device__ void scanRootToLeaves(int *s_data, unsigned int stride)
 	{
 		 unsigned int thid = threadIdx.x;
@@ -146,7 +145,7 @@ namespace scan {
 			}
 		}
 	}
-
+	//---------------------------------------------------------------------------
 	template <bool storeSum>
 	__device__ void prescanBlock(int *data, int blockIndex, int *blockSums)
 	{
@@ -155,7 +154,7 @@ namespace scan {
 								   (blockIndex == 0) ? blockIdx.x : blockIndex);
 		scanRootToLeaves(data, stride);            // traverse down tree to build the scan 
 	}
-
+	//---------------------------------------------------------------------------
 	template <bool storeSum, bool isNP2>
 	__global__ void prescan(int *g_odata, 
 							const int *g_idata, 
@@ -180,8 +179,7 @@ namespace scan {
 									 ai, bi, mem_ai, mem_bi, 
 									 bankOffsetA, bankOffsetB);  
 	}
-
-
+	//---------------------------------------------------------------------------
 	__global__ void uniformAdd(int *g_data, 
 							   int *uniforms, 
 							   int n, 
@@ -200,12 +198,12 @@ namespace scan {
 		g_data[address]              += uni;
 		g_data[address + blockDim.x] += (threadIdx.x + blockDim.x < n) * uni;
 	}
-
+	//---------------------------------------------------------------------------
 	inline bool isPowerOfTwo(int n)
 	{
 		return ((n&(n-1))==0) ;
 	}
-
+	//---------------------------------------------------------------------------
 	inline int floorPow2(int n)
 	{
 	#ifdef WIN32
@@ -220,11 +218,11 @@ namespace scan {
 		return 1 << (exp - 1);
 	#endif
 	}
-
+	//---------------------------------------------------------------------------
 	int** g_scanBlockSums;
 	unsigned int g_numEltsAllocated = 0;
 	unsigned int g_numLevelsAllocated = 0;
-
+	//---------------------------------------------------------------------------
 	void preallocBlockSums(unsigned int maxNumElements)
 	{
 		assert(g_numEltsAllocated == 0); // shouldn't be called 
@@ -267,7 +265,7 @@ namespace scan {
 
 		//cutilCheckMsg("preallocBlockSums");
 	}
-
+	//---------------------------------------------------------------------------
 	void deallocBlockSums()
 	{
 		for (unsigned int i = 0; i < g_numLevelsAllocated; i++)
@@ -283,8 +281,7 @@ namespace scan {
 		g_numEltsAllocated = 0;
 		g_numLevelsAllocated = 0;
 	}
-
-
+	//---------------------------------------------------------------------------
 	void prescanArrayRecursive(int *outArray, 
 							   const int *inArray, 
 							   int numElements, 
@@ -404,12 +401,12 @@ namespace scan {
 			 //cutilCheckMsg("prescanNP2");
 		}
 	}
-
+	//---------------------------------------------------------------------------
 	void prescanArray(int *outArray, int *inArray, int numElements)
 	{
 		prescanArrayRecursive(outArray, inArray, numElements, 0);
 	}
-
+	//---------------------------------------------------------------------------
 	int  prefixSum( int* d_inArr, int* d_outArr, int numRecords ) {	
 		preallocBlockSums(numRecords);
 		prescanArray( d_outArr, d_inArr, numRecords );
@@ -428,6 +425,5 @@ namespace scan {
 	
 		return sum;
 	}
-
-}
-}
+	//---------------------------------------------------------------------------
+}}
