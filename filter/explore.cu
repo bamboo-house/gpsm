@@ -1,10 +1,10 @@
-#include "plan.h"
+#include "explore.h"
 #include <queue>
 
 namespace gpsm {
-namespace init {
+namespace filter {
 	//---------------------------------------------------------------------------
-	struct Node 
+	struct Node
 	{
 		int id;
 		float scoreIn;
@@ -25,15 +25,18 @@ namespace init {
 		}
 	};
 	//---------------------------------------------------------------------------
-	int getScore(GPGraph* query, GPGraph* graph, Node* scores) {
-		
+	int getScore(	GPGraph* query, 
+					GPGraph* graph, 
+					Node* scores)
+	{
+
 		float factor = 1, avgSize = 0; // scale factor for refine node scores
 		FOR_LIMIT(i, graph->numLabels) avgSize += graph->labelSizes[i];
 		avgSize /= graph->numLabels;
 
 		while (avgSize / factor > 1000.0) factor *= 10.0;
 
-		int firstNodeId = 0;
+		int root = 0;
 		float maxScore = 0;
 
 		FOR_LIMIT(i, query->numNodes) {
@@ -47,66 +50,44 @@ namespace init {
 
 			if (std::max(scores[i].scoreIn, scores[i].scoreOut) > maxScore) {
 				maxScore = std::max(scores[i].scoreIn, scores[i].scoreOut);
-				firstNodeId = i;
+				root = i;
 			}
 		}
 
-		return firstNodeId;
+		return root;
 	}
 	//---------------------------------------------------------------------------
-	void initPlan(GPPlan* plan, int size) {
-		plan->numNodes = size;
-
-		plan->nodes = (int*)malloc(sizeof(int) * size);
-		CHECK_POINTER(plan->nodes);
-
-		plan->scanIn = (bool*)malloc(sizeof(bool) * size);
-		CHECK_POINTER(plan->scanIn);
-
-		plan->scanOut = (bool*)malloc(sizeof(bool) * size);
-		CHECK_POINTER(plan->scanOut);
-	}
-	//---------------------------------------------------------------------------
-	bool getPlan(GPGraph* query, GPGraph* graph, GPPlan* plan) {
+	bool checkEmptyLabel(GPGraph* query, GPGraph* graph) {
 		FOR_LIMIT(i, query->numNodes) {
 			int label = query->nodeLabels[i];
 			if (label > graph->numLabels || graph->nodeLabels[label] == 0) return false;
 		}
 
+		return true;
+	}
+	//---------------------------------------------------------------------------
+	bool initCandidateNodes(GPGraph* query, 
+							GPGraph* d_query, 
+							GPGraph* graph,
+							GPGraph* d_graph) 
+	{
+		// check if there is any label in the query graph having zero-size
+		if (checkEmptyLabel(query, graph) == false) return false;
+		
+		// calculate node scores
 		Node* scores = (Node*)malloc(sizeof(Node) * query->numNodes);
 		CHECK_POINTER(scores);
+		int nodeId = getScore(query, graph, scores); // return the root node
 
+		// monitor filtered nodes
 		bool* visited = (bool*)malloc(sizeof(bool) * query->numNodes);
 		CHECK_POINTER(visited);
 		FILL(visited, graph->numNodes, false);
 
-		initPlan(plan, query->numNodes);
-
-		int nodeId = getScore(query, graph, scores);
-		visited[nodeId] = true;
-
-		std::priority_queue<Node*, std::vector<Node*>, CompareNode > pq;
-
-		plan->numNodes = 0;
-		while (pq.empty() == false) {
-			Node* node = pq.top();
-			nodeId = node->id;
-
-			FOR_RANGE(i, query->outOffsets[nodeId], query->outOffsets[nodeId + 1]) {
-				int id = query->outEdges[i];
-				if (visited[id] == false) {
-					visited[id] = true;
-				}
-			}
-
-
-			pq.pop();
-		}
-
-
-		free(visited);
-		free(scores);
 
 		return true;
 	}
-}}
+	//---------------------------------------------------------------------------
+
+}
+}

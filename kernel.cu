@@ -1,151 +1,142 @@
-#include "util\scan.h"
+#include "util\csr_graph_io.h"
+#include "util\large_node.cuh"
 #include "util\gutil.h"
+#include "util\Timer.h"
 #include <iostream>
+#include <vector>
+//---------------------------------------------------------------------------
+using namespace gpsm;
+//---------------------------------------------------------------------------
+Timer timer;
 
-cudaError_t addWithCuda(int *c, const int *a, const bool *b, unsigned int size);
+#define CMT_LOAD "load"
+#define CMT_INFO "graph"
+#define CMT_CLEAR "clear"
+#define CMT_EXEC "exec"
+#define CMT_HELP "help"
+#define CMT_EXIT "exit"
 
+std::vector<std::string> allowed() {
+	std::vector<std::string> all;
+	all.push_back(CMT_LOAD);
+	all.push_back(CMT_INFO);
+	all.push_back(CMT_CLEAR);
+	all.push_back(CMT_EXEC);
+	all.push_back(CMT_HELP);
+	all.push_back(CMT_EXIT);
+	return all;
+}
+//---------------------------------------------------------------------------
+bool isAllowed(std::string command, std::vector<std::string> all)
+{
+	FOR_LIMIT(i, all.size())
+		if (command == all[i]) return true;
+
+	return false;
+}
+//---------------------------------------------------------------------------
+void showGraph(graph::GPGraph* db)
+{
+	if (db != NULL) {
+		std::cout << "Node count: " << db->numNodes << std::endl;
+		std::cout << "Edge count: " << db->numEdges << std::endl;
+		std::cout << "Label count: " << db->numLabels << std::endl;
+		std::cout << "Maximum nodes per label: " << db->maxLabelSize << std::endl;
+	}
+	else std::cout << "No graph data loaded to main memory\n";
+}
+//---------------------------------------------------------------------------
+graph::GPGraph* db = NULL;
+graph::GPGraph* dev_db = NULL;
+graph::GPExpNode* exn = NULL;
+graph::GPExpNode* dev_exn = NULL;
+
+void deleteData() {
+	if (db != NULL) { delete db; db = NULL; }
+	if (dev_db != NULL) { delete dev_db; dev_db = NULL; }
+
+	if (exn != NULL) { delete exn; exn = NULL; }
+	if (dev_exn != NULL) { delete dev_exn; dev_exn = NULL; }
+}
+//---------------------------------------------------------------------------
+graph::GPGraph* loadData(std::string line) {
+	graph::GPGraph* db = NULL;
+	
+	std::istringstream iss(line);
+	std::string com;
+	std::string format;
+	std::string file;
+
+	if (!(iss >> com >> format >> file)) std::cout << "No input file or format specified; use 'help' for more information\n";
+	else {
+		if (format == "-t" || format == "-b") {
+			timer.start();
+			if (format == "-t") db = graph::readText(file.c_str());
+			else db = graph::readBinary(file.c_str());
+			timer.stop();
+
+			if (db != NULL) {
+				std::cout << "Loaded graph data in " << timer.getElapsedTimeInMilliSec() << " ms\n";
+				showGraph(db);
+			}
+			else std::cout << "Could not load data from '" + file + "'\n";
+		}
+		else std::cout << "No graph format specified; use 'help' for more information\n";
+	}
+
+	return db;
+}
+//---------------------------------------------------------------------------
 int main()
 {
-	const int arraySize = 5;
-	const int a[arraySize] = { 1, 2, 3, 4, 5 };
-	const bool b[arraySize] = { false, true, true, false, true };
-	int c[arraySize] = { 0 };
+	std::vector<std::string> allCom = allowed();
 
-	// Add vectors in parallel.
-	cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "addWithCuda failed!");
-		return 1;
+	while (true) {
+		std::cout << "gpsm> ";
+
+		std::string line;
+		getline(std::cin, line);
+
+		if (line.empty()) continue;
+
+		std::istringstream iss(line);
+		std::string com;
+		if (!(iss >> com)) continue;
+
+		if (isAllowed(com, allCom) == false) {
+			std::cout << "'" << com << "' is not recognized as an internal command; use 'help' for more information\n";
+			continue;
+		}
+
+		if (com == CMT_LOAD) { // load database graph to main memory and device memory
+			// clear all existing data
+			std::cout << "Removing existing data graph ... "; 
+			deleteData();
+			std::cout << "\n";
+
+			// load graph to main memory
+			db = loadData(line);
+
+			if (db != NULL) {
+				// find high-degree nodes from database graph
+
+
+				timer.start();
+				dev_db = db->copy(CopyType::HOST_TO_DEVICE);
+				timer.stop();
+
+				if (dev_db == NULL) std::cout << "Could not copy data to GPU; check device infomation\n";
+				else std::cout << "Copied data to GPU memory in " << timer.getElapsedTimeInMilliSec() << " ms\n";
+			}
+		}
+		else if (com == CMT_INFO) showGraph(db);
+		else if (com == CMT_CLEAR) deleteData();
+		else if (com == CMT_EXIT) break;
+
+		std::cout << std::endl;
 	}
 
-	// cudaDeviceReset must be called before exiting in order for profiling and
-	// tracing tools such as Nsight and Visual Profiler to show complete traces.
-	cudaStatus = cudaDeviceReset();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceReset failed!");
-		return 1;
-	}
+	deleteData();
 
 	return 0;
-}
-
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const bool *b, unsigned int size)
-{
-	int *dev_a = 0;
-	bool *dev_b = 0;
-	int *dev_c = 0;
-	int* dev_d = 0;
-	cudaError_t cudaStatus;
-
-	// Choose which GPU to run on, change this on a multi-GPU system.
-	cudaStatus = cudaSetDevice(0);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-		goto Error;
-	}
-
-	// Allocate GPU buffers for three vectors (two input, one output)    .
-	cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		goto Error;
-	}
-
-	cudaStatus = cudaMalloc((void**)&dev_d, size * sizeof(int));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		goto Error;
-	}
-
-	cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		goto Error;
-	}
-
-	cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(bool));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		goto Error;
-	}
-
-	// Copy input vectors from host memory to GPU buffers.
-	cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		goto Error;
-	}
-
-	cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(bool), cudaMemcpyHostToDevice);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		goto Error;
-	}
-
-	// Launch a kernel on the GPU with one thread for each element.
-	gpsm::scan::prefixSum(dev_a, dev_c, size);
-
-	// Check for any errors launching the kernel
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		goto Error;
-	}
-
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		goto Error;
-	}
-
-	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		goto Error;
-	}
-
-	printf("{1,2,3,4,5} = {%d,%d,%d,%d,%d}\n",
-		c[0], c[1], c[2], c[3], c[4]);
-
-	// Launch a kernel on the GPU with one thread for each element.
-	gpsm::scan::compact(dev_b, dev_d, size);
-
-	// Check for any errors launching the kernel
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		goto Error;
-	}
-
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		goto Error;
-	}
-
-	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(c, dev_d, size * sizeof(int), cudaMemcpyDeviceToHost);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		goto Error;
-	}
-
-	CUDA_SAFE_CALL(cudaDeviceSynchronize());
-
-	printf("{0, 1, 1, 0, 1} = {%d,%d,%d,%d,%d}\n",
-		c[0], c[1], c[2], c[3], c[4]);
-	
-Error:
-	cudaFree(dev_c);
-	cudaFree(dev_a);
-	cudaFree(dev_b);
-	cudaFree(dev_d);
-
-	return cudaStatus;
 }

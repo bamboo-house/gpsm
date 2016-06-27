@@ -1,7 +1,7 @@
-#include "graphio.h"
+#include "csr_graph_io.cuh"
 
 namespace gpsm {
-namespace graphio {
+namespace graph {
 	//---------------------------------------------------------------------------
 	void getLabels(GPGraph* graph) { // get statistics of node labels
 		if (graph->numNodes > 0) {
@@ -50,13 +50,15 @@ namespace graphio {
 		}
 	}
 	//---------------------------------------------------------------------------
-	bool readBinary(GPGraph* graph, char* fileName, bool debug) {
+	GPGraph* readBinary(const char* fileName, bool debug) {
 		FILE* fp = fopen(fileName, "rb");
-		if (fp == NULL) return false;
+		if (fp == NULL) return NULL;
 
 		if (debug) {
 			printf("Loading graph from binary file ...\n");
 		}
+
+		GPGraph* graph = new GPGraph();
 
 		// read statistics
 		fread(&graph->numNodes, sizeof(int), 1, fp);
@@ -86,10 +88,10 @@ namespace graphio {
 		// calculate incoming information
 		getInEdges(graph);
 
-		return true;
+		return graph;
 	}
 	//---------------------------------------------------------------------------
-	bool writeBinary(GPGraph* graph, char* fileName, bool debug) {
+	bool writeBinary(GPGraph* graph, const char* fileName, bool debug) {
 		FILE* fp = fopen(fileName, "wb");
 		if (fp == NULL) return false;
 
@@ -111,7 +113,7 @@ namespace graphio {
 		return true;
 	}
 	//---------------------------------------------------------------------------
-	bool readStatistics(GPGraph* graph, char* fileName, bool debug) { // read graph statistics from text format
+	bool readStatistics(GPGraph* graph, const char* fileName, bool debug) { // read graph statistics from text format
 		std::ifstream in(fileName);
 
 		if (in.is_open()) {
@@ -132,7 +134,7 @@ namespace graphio {
 		return false;
 	}
 	//---------------------------------------------------------------------------
-	bool readNodes(GPGraph* graph, char* fileName, bool debug) { // read node information from text format
+	bool readNodes(GPGraph* graph, const char* fileName, bool debug) { // read node information from text format
 		std::ifstream in(fileName);
 
 		if (in.is_open()) {
@@ -191,7 +193,7 @@ namespace graphio {
 		return false;
 	}
 	//---------------------------------------------------------------------------
-	bool readEdges(GPGraph* graph, char* fileName, bool debug) { // get edge information from text format
+	bool readEdges(GPGraph* graph, const char* fileName, bool debug) { // get edge information from text format
 		std::ifstream in(fileName);
 
 		if (in.is_open()) {
@@ -230,9 +232,14 @@ namespace graphio {
 		return false;
 	}
 	//---------------------------------------------------------------------------
-	bool readText(GPGraph* graph, char* fileName, bool debug) {
+	GPGraph* readText(const char* fileName, bool debug) {
 
-		if (readStatistics(graph, fileName, debug) == false) return false;
+		GPGraph* graph = new GPGraph();
+
+		if (readStatistics(graph, fileName, debug) == false) {
+			delete graph;
+			return NULL;
+		}
 
 		// init node and edge arrays
 		graph->nodeLabels = (int*)malloc(graph->numNodes * sizeof(int));
@@ -253,16 +260,24 @@ namespace graphio {
 		CHECK_POINTER(graph->inEdges);
 
 		// get node information
-		if (readNodes(graph, fileName, debug) == false) return false;
+		if (readNodes(graph, fileName, debug) == false) {
+			delete graph;
+			return NULL;
+		}
 
 		// get label information
 		getLabels(graph);
 
 		// get edge information
-		return readEdges(graph, fileName, debug);
+		if (readEdges(graph, fileName, debug) == false) {
+			delete graph;
+			return NULL;
+		}
+
+		return graph;
 	}
 	//---------------------------------------------------------------------------
-	bool writeText(GPGraph* graph, char* fileName, bool debug) { // read graph data from binary file
+	bool writeText(GPGraph* graph, const char* fileName, bool debug) { // read graph data from binary file
 		std::ofstream out(fileName);
 		if (out.is_open()) {
 			FOR_LIMIT(i, graph->numNodes) out << "v " << i << " " << graph->nodeLabels[i] << std::endl;
@@ -273,86 +288,6 @@ namespace graphio {
 
 			out.close();
 			return true;
-		}
-
-		return false;
-	}
-	//---------------------------------------------------------------------------
-	bool copy(GPGraph* dest, GPGraph* src, CopyType type) {
-		if ((type == CopyType::HOST_TO_DEVICE || type == CopyType::HOST_TO_HOST)
-			&& src->dataPos != DataPosition::MEM) return NULL;
-
-		if (type == CopyType::DEVICE_TO_HOST && src->dataPos != DataPosition::GPU) return NULL;
-
-		dest->numNodes = src->numNodes;
-		dest->numEdges = src->numEdges;
-		dest->numLabels = src->numLabels;
-		dest->maxLabelSize = src->maxLabelSize;
-
-		switch (type)
-		{
-		case HOST_TO_DEVICE:
-			dest->dataPos = DataPosition::GPU;
-
-			CUDA_SAFE_CALL(cudaMalloc(&dest->nodeLabels, src->numNodes * sizeof(int)));
-			CUDA_SAFE_CALL(cudaMalloc(&dest->outOffsets, (src->numNodes + 1) * sizeof(int)));
-			CUDA_SAFE_CALL(cudaMalloc(&dest->inOffsets, (src->numNodes + 1) * sizeof(int)));
-			CUDA_SAFE_CALL(cudaMalloc(&dest->outEdges, src->numEdges * sizeof(int)));
-			CUDA_SAFE_CALL(cudaMalloc(&dest->inEdges, src->numEdges * sizeof(int)));
-			CUDA_SAFE_CALL(cudaMalloc(&dest->labelSizes, src->numLabels * sizeof(int)));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->nodeLabels, src->nodeLabels, src->numNodes * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->outOffsets, src->outOffsets, (src->numNodes + 1) * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->inOffsets, src->inOffsets, (src->numNodes + 1) * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->outEdges, src->outEdges, src->numEdges * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->inEdges, src->inEdges, src->numEdges * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			CUDA_SAFE_CALL(cudaMemcpy(dest->labelSizes, src->labelSizes, src->numLabels * sizeof(int),
-				cudaMemcpyHostToDevice));
-
-			return true;
-		case HOST_TO_HOST:
-			dest->dataPos = DataPosition::MEM;
-
-			dest->nodeLabels = (int*)malloc(src->numNodes * sizeof(int));
-			CHECK_POINTER(dest->nodeLabels);
-
-			dest->outOffsets = (int*)malloc((src->numNodes + 1) * sizeof(int));
-			CHECK_POINTER(dest->outOffsets);
-
-			dest->inOffsets = (int*)malloc((src->numNodes + 1) * sizeof(int));
-			CHECK_POINTER(dest->inOffsets);
-
-			dest->outEdges = (int*)malloc(src->numEdges * sizeof(int));
-			CHECK_POINTER(dest->outEdges);
-
-			dest->inEdges = (int*)malloc(src->numEdges * sizeof(int));
-			CHECK_POINTER(dest->inEdges);
-
-			dest->labelSizes = (int*)malloc(src->numLabels * sizeof(int));
-			CHECK_POINTER(dest->labelSizes);
-
-			memcpy(dest->nodeLabels, src->nodeLabels, src->numNodes * sizeof(int));
-			memcpy(dest->outOffsets, src->outOffsets, (src->numNodes + 1) * sizeof(int));
-			memcpy(dest->inOffsets, src->inOffsets, (src->numNodes + 1) * sizeof(int));
-			memcpy(dest->outEdges, src->outEdges, src->numEdges * sizeof(int));
-			memcpy(dest->inEdges, src->inEdges, src->numEdges * sizeof(int));
-			memcpy(dest->labelSizes, src->labelSizes, src->numLabels * sizeof(int));
-			
-			return true;
-		case DEVICE_TO_HOST:
-			break;
-		default:
-			break;
 		}
 
 		return false;
