@@ -59,7 +59,7 @@ void deleteData() {
 	if (dev_exn != NULL) { delete dev_exn; dev_exn = NULL; }
 }
 //---------------------------------------------------------------------------
-graph::GPGraph* loadData(std::string line) {
+graph::GPGraph* loadGraph(std::string line) {
 	graph::GPGraph* db = NULL;
 	
 	std::istringstream iss(line);
@@ -87,6 +87,52 @@ graph::GPGraph* loadData(std::string line) {
 	return db;
 }
 //---------------------------------------------------------------------------
+void loadDatabase(std::string line) {
+	// clear all existing data
+	std::cout << "Removing existing data graph ... ";
+	deleteData();
+	std::cout << "\n";
+
+	// load graph to main memory
+	db = loadGraph(line);
+
+	if (db != NULL) {
+		// find high-degree nodes from database graph
+		exn = new graph::GPExpNode();
+		exn->extract(db);
+
+		timer.start();
+		dev_exn = exn->copy(CopyType::HOST_TO_DEVICE);
+		dev_db = db->copy(CopyType::HOST_TO_DEVICE);
+		timer.stop();
+
+		if (dev_db == NULL) std::cout << "Could not copy data to GPU; check device infomation\n";
+		else std::cout << "Copied data to GPU memory in " << timer.getElapsedTimeInMilliSec() << " ms\n";
+	}
+}
+//---------------------------------------------------------------------------
+void executeQuery(std::string line) {
+	if (db == NULL) {
+		std::cout << "No database graph specified\n"; return;
+	}
+
+	// load a query graph
+	graph::GPGraph* qr = loadGraph(line);
+	if (qr == NULL) return;
+
+	timer.start();
+	// copy a query graph to device memory
+	graph::GPGraph* dev_qr = qr->copy(CopyType::HOST_TO_DEVICE);
+	
+	// allocate intermediate data
+
+
+	timer.stop();
+
+	delete dev_qr;
+	delete qr;
+}
+//---------------------------------------------------------------------------
 int main()
 {
 	std::vector<std::string> allCom = allowed();
@@ -108,27 +154,9 @@ int main()
 			continue;
 		}
 
-		if (com == CMT_LOAD) { // load database graph to main memory and device memory
-			// clear all existing data
-			std::cout << "Removing existing data graph ... "; 
-			deleteData();
-			std::cout << "\n";
-
-			// load graph to main memory
-			db = loadData(line);
-
-			if (db != NULL) {
-				// find high-degree nodes from database graph
-
-
-				timer.start();
-				dev_db = db->copy(CopyType::HOST_TO_DEVICE);
-				timer.stop();
-
-				if (dev_db == NULL) std::cout << "Could not copy data to GPU; check device infomation\n";
-				else std::cout << "Copied data to GPU memory in " << timer.getElapsedTimeInMilliSec() << " ms\n";
-			}
-		}
+		// load database graph to main memory and device memory
+		if (com == CMT_LOAD) loadDatabase(line);
+		else if (com == CMT_EXEC) executeQuery(line);
 		else if (com == CMT_INFO) showGraph(db);
 		else if (com == CMT_CLEAR) deleteData();
 		else if (com == CMT_EXIT) break;

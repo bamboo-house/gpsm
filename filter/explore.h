@@ -4,6 +4,13 @@
 namespace gpsm {
 namespace filter {
 
+	struct GPSpec {
+		int numNodes;
+
+		bool** candidateSets;
+		
+	};
+
 	bool filterNodes();
 
 }}
