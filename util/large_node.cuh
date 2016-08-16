@@ -2,7 +2,7 @@
 #define __GPSM_EXCEPTION_NODE_H__
 
 #include "gutil.h"
-#include "csr_graph.cuh"
+#include "graph.h"
 
 namespace gpsm {
 namespace graph {

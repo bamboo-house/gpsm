@@ -1,4 +1,4 @@
-#include "csr_graph_io.cuh"
+#include "graph_io.h"
 
 namespace gpsm {
 namespace graph {

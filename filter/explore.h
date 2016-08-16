@@ -1,5 +1,5 @@
 #include "../util/gutil.h"
-#include "../util/csr_graph.cuh"
+#include "../util/graph.h"
 
 namespace gpsm {
 namespace filter {
@@ -8,7 +8,8 @@ namespace filter {
 		int numNodes;
 
 		bool** candidateSets;
-		
+		int* candidateNodes;
+
 	};
 
 	bool filterNodes();
