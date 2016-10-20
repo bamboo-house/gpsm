@@ -5,6 +5,7 @@
 
 namespace gpsm {
 namespace graph {
+
 	struct GPGraph {
 		int numNodes; // number of nodes
 		int numEdges; // number of edges
