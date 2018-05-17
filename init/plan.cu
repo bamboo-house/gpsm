@@ -1,5 +1,6 @@
 #include "plan.h"
 #include <queue>
+#include "../util/graph.h"
 
 namespace gpsm {
 namespace init {
@@ -25,7 +26,7 @@ namespace init {
 		}
 	};
 	//---------------------------------------------------------------------------
-	int getScore(GPGraph* query, GPGraph* graph, Node* scores) {
+	int getScore(graph::GPGraph * query, graph::GPGraph * graph, Node* scores) {
 		
 		float factor = 1, avgSize = 0; // scale factor for refine node scores
 		FOR_LIMIT(i, graph->numLabels) avgSize += graph->labelSizes[i];
@@ -67,7 +68,7 @@ namespace init {
 		CHECK_POINTER(plan->scanOut);
 	}
 	//---------------------------------------------------------------------------
-	bool getPlan(GPGraph* query, GPGraph* graph, GPPlan* plan) {
+	bool getPlan(graph::GPGraph* query, graph::GPGraph* graph, GPPlan* plan) {
 		FOR_LIMIT(i, query->numNodes) {
 			int label = query->nodeLabels[i];
 			if (label > graph->numLabels || graph->nodeLabels[label] == 0) return false;

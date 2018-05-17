@@ -1,7 +1,7 @@
-#include "util\graph_io.h"
-#include "util\large_node.cuh"
-#include "util\gutil.h"
-#include "util\Timer.h"
+#include "util/graph_io.h"
+#include "util/large_node.cuh"
+#include "util/gutil.h"
+#include "util/Timer.h"
 #include <iostream>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -102,8 +102,10 @@ void loadDatabase(std::string line) {
 		exn->extract(db);
 
 		timer.start();
-		dev_exn = exn->copy(CopyType::HOST_TO_DEVICE);
-		dev_db = db->copy(CopyType::HOST_TO_DEVICE);
+		/*dev_exn = exn->copy(CopyType::HOST_TO_DEVICE);*/
+		dev_exn = exn->copy(HOST_TO_DEVICE);
+		/*dev_db = db->copy(CopyType::HOST_TO_DEVICE);*/
+		dev_db = db->copy(HOST_TO_DEVICE);
 		timer.stop();
 
 		if (dev_db == NULL) std::cout << "Could not copy data to GPU; check device infomation\n";
@@ -122,9 +124,11 @@ void executeQuery(std::string line) {
 
 	timer.start();
 	// copy a query graph to device memory
-	graph::GPGraph* dev_qr = qr->copy(CopyType::HOST_TO_DEVICE);
+	/*graph::GPGraph* dev_qr = qr->copy(CopyType::HOST_TO_DEVICE);*/
+	graph::GPGraph* dev_qr = qr->copy(HOST_TO_DEVICE);
 	
 	// allocate intermediate data
+	//TODO: match 
 
 
 	timer.stop();
@@ -168,3 +172,4 @@ int main()
 
 	return 0;
 }
+

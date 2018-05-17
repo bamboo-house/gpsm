@@ -25,8 +25,8 @@ namespace filter {
 		}
 	};
 	//---------------------------------------------------------------------------
-	int getScore(	GPGraph* query, 
-					GPGraph* graph, 
+	int getScore(	graph::GPGraph* query, 
+					graph::GPGraph* graph, 
 					Node* scores)
 	{
 
@@ -57,7 +57,7 @@ namespace filter {
 		return root;
 	}
 	//---------------------------------------------------------------------------
-	bool checkEmptyLabel(GPGraph* query, GPGraph* graph) {
+	bool checkEmptyLabel(graph::GPGraph* query, graph::GPGraph* graph) {
 		FOR_LIMIT(i, query->numNodes) {
 			int label = query->nodeLabels[i];
 			if (label > graph->numLabels || graph->nodeLabels[label] == 0) return false;
@@ -66,10 +66,10 @@ namespace filter {
 		return true;
 	}
 	//---------------------------------------------------------------------------
-	bool initCandidateNodes(GPGraph* query, 
-							GPGraph* d_query, 
-							GPGraph* graph,
-							GPGraph* d_graph) 
+	bool initCandidateNodes(graph::GPGraph* query, 
+							graph::GPGraph* d_query, 
+							graph::GPGraph* graph,
+							graph::GPGraph* d_graph) 
 	{
 		// check if there is any label in the query graph having zero-size
 		if (checkEmptyLabel(query, graph) == false) return false;

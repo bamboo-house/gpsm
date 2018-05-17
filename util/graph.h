@@ -35,11 +35,11 @@ namespace graph {
 			outEdges = NULL;
 			inOffsets = NULL;
 			inEdges = NULL;
-			dataPos = DataPosition::MEM;
+			dataPos = MEM;
 		}
 
 		~GPGraph() { // release memory
-			if (dataPos == DataPosition::GPU) {
+			if (dataPos == GPU) {
 				if (numNodes > 0) {
 					CUDA_SAFE_CALL(cudaFree(nodeLabels));
 					CUDA_SAFE_CALL(cudaFree(outOffsets));
@@ -55,7 +55,7 @@ namespace graph {
 					CUDA_SAFE_CALL(cudaFree(labelSizes));
 				}
 			}
-			else if (dataPos == DataPosition::MEM) {
+			else if (dataPos == MEM) {
 				if (numNodes > 0) {
 					free(nodeLabels);
 					free(outOffsets);
@@ -74,10 +74,10 @@ namespace graph {
 		}
 
 		GPGraph* copy(CopyType type) {
-			if ((type == CopyType::HOST_TO_DEVICE || type == CopyType::HOST_TO_HOST)
-				&& dataPos != DataPosition::MEM) return NULL;
+			if ((type == HOST_TO_DEVICE || type == HOST_TO_HOST)
+				&& dataPos != MEM) return NULL;
 
-			if (type == CopyType::DEVICE_TO_HOST && dataPos != DataPosition::GPU) return NULL;
+			if (type == DEVICE_TO_HOST && dataPos != GPU) return NULL;
 
 			GPGraph* dest = new GPGraph();
 
@@ -89,7 +89,7 @@ namespace graph {
 			switch (type)
 			{
 			case HOST_TO_DEVICE:
-				dest->dataPos = DataPosition::GPU;
+				dest->dataPos = GPU;
 
 				CUDA_SAFE_CALL(cudaMalloc(&dest->nodeLabels, numNodes * sizeof(int)));
 				CUDA_SAFE_CALL(cudaMalloc(&dest->outOffsets, (numNodes + 1) * sizeof(int)));
@@ -118,7 +118,7 @@ namespace graph {
 				CUDA_SAFE_CALL(cudaDeviceSynchronize());
 				break;
 			case DEVICE_TO_HOST:
-				dest->dataPos = DataPosition::MEM;
+				dest->dataPos = MEM;
 
 				dest->nodeLabels = new int[numNodes];
 				CHECK_POINTER(dest->nodeLabels);
@@ -158,7 +158,7 @@ namespace graph {
 				CUDA_SAFE_CALL(cudaDeviceSynchronize());
 				break;
 			case HOST_TO_HOST:
-				dest->dataPos = DataPosition::MEM;
+				dest->dataPos = MEM;
 
 				dest->nodeLabels = new int[numNodes];
 				CHECK_POINTER(dest->nodeLabels);

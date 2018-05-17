@@ -100,10 +100,10 @@ namespace graph {
 
 		/* Copy */
 		GPExpNode* copy(CopyType type) {
-			if ((type == CopyType::HOST_TO_DEVICE || type == CopyType::HOST_TO_HOST)
+			if ((type == HOST_TO_DEVICE || type == HOST_TO_HOST)
 				&& inDev == true) return NULL;
 
-			if (type == CopyType::DEVICE_TO_HOST && inDev == false) return NULL;
+			if (type == DEVICE_TO_HOST && inDev == false) return NULL;
 
 			GPExpNode* dest = new GPExpNode();
 
@@ -127,7 +127,7 @@ namespace graph {
 
 			switch (type)
 			{
-			case CopyType::HOST_TO_DEVICE:
+			case HOST_TO_DEVICE:
 				dest->inDev = true;
 				FOR_LIMIT(i, labelCount) {
 					if (dest->highInDegCounts[i] > 0) {
@@ -143,7 +143,7 @@ namespace graph {
 					}
 				}
 				break;
-			case CopyType::DEVICE_TO_HOST:
+			case DEVICE_TO_HOST:
 				dest->inDev = false;
 				FOR_LIMIT(i, labelCount) {
 					if (dest->highInDegCounts[i] > 0) {
@@ -159,7 +159,7 @@ namespace graph {
 					}
 				}
 				break;
-			case CopyType::HOST_TO_HOST:
+			case HOST_TO_HOST:
 				dest->inDev = false;
 				FOR_LIMIT(i, labelCount) {
 					if (dest->highInDegCounts[i] > 0) {
